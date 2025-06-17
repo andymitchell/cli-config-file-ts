@@ -296,7 +296,7 @@ describe('loadTsConfig', () => {
             expect(exportIndex).toBeGreaterThan(importIndex); // Export after import
         });
 
-        it.only('should add an import with a relative path for a local type constraint', async () => {
+        it('should add an import with a relative path for a local type constraint', async () => {
             // Setup a directory structure to test relative path calculation
             const configDir = path.join(tempDir, 'config-location');
             const typesDir = path.join(tempDir, 'types-location/nested');
