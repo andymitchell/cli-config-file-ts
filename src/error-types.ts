@@ -60,6 +60,10 @@ export interface TranspileFailed {
     type: 'transpile_failed'
 }
 
+export interface InvalidPath {
+    type: 'invalid_path',
+}
+
 /**
  * Union of **all** known `Error.cause` variants produced by the config
  * loaders.  Narrowing to this type lets TypeScript’s control-flow analysis
@@ -72,7 +76,8 @@ export type ConfigLoadErrorCause =
     | UncertainExportCause
     | InvalidDefaultConfigFormatCause
     | InvalidConfigFormatCause
-    | TranspileFailed;
+    | TranspileFailed
+    | InvalidPath;
 
 /**
  * Type-guard that returns `true` when the value is one of the recognised
@@ -106,6 +111,7 @@ export function isKnownCause(cause: unknown): cause is ConfigLoadErrorCause {
         case 'uncertain_export':
         case 'invalid_default_config_format':
         case 'invalid_config_format':
+        case 'invalid_path':
         case 'transpile_failed':
             return true;
         default:

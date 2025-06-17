@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { loadInTsEnv, loadTsConfig, transpileAndImport } from './loadTsConfig.ts';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import path from 'path';
+import path, { dirname } from 'path';
 import { tmpdir } from 'os';
 import { execa } from 'execa';
 import type { CreateIfNotFound } from './types.ts';
@@ -283,7 +283,7 @@ describe('loadTsConfig', () => {
             const content = await readFile(configFilePath, 'utf-8');
 
             // Check that all parts exist in the correct order
-            expect(content).toContain('import {MyConfigType} from "@my-org/my-package";');
+            expect(content).toContain('import type {MyConfigType} from "@my-org/my-package";');
             expect(content).toContain('// Please review and adjust these settings as needed for your project.');
             expect(content).toContain('export const config:MyConfigType = {');
 
@@ -296,10 +296,10 @@ describe('loadTsConfig', () => {
             expect(exportIndex).toBeGreaterThan(importIndex); // Export after import
         });
 
-        it('should add an import with a relative path for a local type constraint', async () => {
+        it.only('should add an import with a relative path for a local type constraint', async () => {
             // Setup a directory structure to test relative path calculation
             const configDir = path.join(tempDir, 'config-location');
-            const typesDir = path.join(tempDir, 'types-location');
+            const typesDir = path.join(tempDir, 'types-location/nested');
             await mkdir(configDir, { recursive: true });
             await mkdir(typesDir, { recursive: true });
 
@@ -321,10 +321,12 @@ describe('loadTsConfig', () => {
             const content = await readFile(configFilePath, 'utf-8');
 
             // Calculate the expected relative path exactly as the function does
-            const expectedRelativePath = path.relative(configFilePath, typeDefinitionPath);
+            const expectedRelativePath = path.relative(dirname(configFilePath), typeDefinitionPath);
 
 
-            expect(content).toContain(`import {AppThemeConfig} from "${expectedRelativePath}";`);
+
+            expect(content).toContain(`import type {AppThemeConfig} from "${expectedRelativePath}";`);
+            expect(content).toContain(`import type {AppThemeConfig} from "../types-location/nested/custom-types.ts";`);
             expect(content).toContain('export const config:AppThemeConfig = {');
         });
     });

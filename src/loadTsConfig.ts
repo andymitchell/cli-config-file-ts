@@ -25,7 +25,7 @@ import { build } from "esbuild";
  */
 export async function loadTsConfig<T extends object = any>(absolutePath: string, createIfNotFound?: CreateIfNotFound<T>): Promise<T> {
     if (!path.isAbsolute(absolutePath)) {
-        throw new Error(`Path must be absolute: received "${absolutePath}"`, { cause: { type: 'file_not_found', reason: 'not_absolute_path' } });
+        throw new Error(`Path must be absolute: received "${absolutePath}"`, { cause: { type: 'invalid_path'} });
     }
 
     if (!existsSync(absolutePath)) {
