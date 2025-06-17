@@ -7,6 +7,8 @@ import { pathToFileURL } from "url";
 import { transpileModule, ModuleKind, ScriptTarget } from "typescript";
 import { existsSync } from "fs";
 import type { CreateIfNotFound } from "./types.ts";
+import { createTsConfig } from "./createTsConfig.ts";
+
 
 
 /**
@@ -28,7 +30,7 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
 
     if( !existsSync(absolutePath) ) {
         if( createIfNotFound ) {
-            await createConfigFile(absolutePath, createIfNotFound);
+            await createTsConfig(absolutePath, createIfNotFound);
             if(createIfNotFound.immediatelyUseConfig ) {
                 return createIfNotFound.config as T;
             } else {
@@ -68,16 +70,6 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
 
 }
 
-/**
- * Create a config file from a default object.
- * 
- * @param absolutePath The location to write the file to 
- * @param details The default object for the config
- */
-export async function createConfigFile(absolutePath: string, details:CreateIfNotFound):Promise<void> {
-    const content = `export const config = ${JSON.stringify(details.config, undefined, 4)};`.trim();
-    await writeFile(absolutePath, content, {encoding: 'utf-8'});
-}
 
 
 /**

@@ -2,11 +2,13 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { loadInTsEnv, loadTsConfig, transpileAndImport } from './loadTsConfig.ts';
-import { mkdir, rm, writeFile } from 'fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 import { execa } from 'execa';
+import type { CreateIfNotFound } from './types.ts';
+import { createTsConfig } from './createTsConfig.ts';
 
 
 // --- Test Setup ---
@@ -26,7 +28,7 @@ afterAll(async () => {
 });
 
 // Helper to create a config file in the temp directory
-const createConfigFile = async (fileName: string, content: string) => {
+const createTsConfigForTest = async (fileName: string, content: string) => {
     const filePath = path.join(tempDir, fileName);
     await writeFile(filePath, content, 'utf-8');
     return filePath;
@@ -104,7 +106,7 @@ describe('loadTsConfig', () => {
     describe('loadInTsEnv()', () => {
 
         it('succeeds (success=true) when Node can natively import the file (e.g. .mjs)', async () => {
-            const fp = await createConfigFile('config.mjs', `export default { esm: true };`);
+            const fp = await createTsConfigForTest('config.mjs', `export default { esm: true };`);
             const result = await loadInTsEnv(fp);
             expect(result).toEqual({ success: true, mod: expect.objectContaining({ default: { esm: true } }) });
         });
@@ -115,7 +117,7 @@ describe('loadTsConfig', () => {
             it('should successfully load a config using native TS import path', async () => {
                 const expectedConfig = { native: true, mode: 'test' };
                 const content = `export default ${JSON.stringify(expectedConfig)}`;
-                const configFilePath = await createConfigFile('native-test.ts', content);
+                const configFilePath = await createTsConfigForTest('native-test.ts', content);
 
                 // Use execa to run tsx with our helper script and config file
                 const { stdout, stderr, exitCode } = await execa(
@@ -133,7 +135,7 @@ describe('loadTsConfig', () => {
 
             it('should propagate errors correctly when run in a native TS environment', async () => {
                 const content = `export default { key: , }; // Syntax Error`;
-                const configFilePath = await createConfigFile('native-syntax-error.ts', content);
+                const configFilePath = await createTsConfigForTest('native-syntax-error.ts', content);
 
                 // We expect this command to fail, so we wrap it in a try/catch
                 // or use .rejects with Vitest's expect.
@@ -164,7 +166,7 @@ describe('loadTsConfig', () => {
 
         it('should load a config with a direct call to transpile', async () => {
             const content = `export default { mode: 'production' };`;
-            const configFile = await createConfigFile('default-export-transpile.ts', content);
+            const configFile = await createTsConfigForTest('default-export-transpile.ts', content);
 
             const result = await transpileAndImport(configFile);
             expect(result).toEqual({ mode: 'production' });
@@ -172,7 +174,7 @@ describe('loadTsConfig', () => {
 
         it('should load a config with a default export', async () => {
             const content = `export default { mode: 'production' };`;
-            const configFile = await createConfigFile('default-export.ts', content);
+            const configFile = await createTsConfigForTest('default-export.ts', content);
 
             const config = await loadTsConfig(configFile);
             expect(config).toEqual({ mode: 'production' });
@@ -180,7 +182,7 @@ describe('loadTsConfig', () => {
 
         it('should load a config with a single named export', async () => {
             const content = `export const myConfig = { timeout: 5000 };`;
-            const configFile = await createConfigFile('named-export.ts', content);
+            const configFile = await createTsConfigForTest('named-export.ts', content);
 
             const config = await loadTsConfig(configFile);
             expect(config).toEqual({ timeout: 5000 });
@@ -191,7 +193,7 @@ describe('loadTsConfig', () => {
                 export const otherSetting = { enabled: false };
                 export default { priority: 'high' };
             `;
-            const configFile = await createConfigFile('priority-export.ts', content);
+            const configFile = await createTsConfigForTest('priority-export.ts', content);
 
             const config = await loadTsConfig(configFile);
             expect(config).toEqual({ priority: 'high' });
@@ -200,7 +202,7 @@ describe('loadTsConfig', () => {
         it('should handle CommonJS style exports correctly after transpilation', async () => {
             // `module.exports = ...` transpiles to a default export in ESM
             const content = `module.exports = { isCjs: true };`;
-            const configFile = await createConfigFile('cjs-export.ts', content);
+            const configFile = await createTsConfigForTest('cjs-export.ts', content);
 
             const config = await loadTsConfig(configFile);
             expect(config).toEqual({ isCjs: true });
@@ -210,7 +212,7 @@ describe('loadTsConfig', () => {
     describe('Error Handling during Load', () => {
         it('should throw an error if the config file has no exports', async () => {
             const content = `const a = 1; let b = 2;`;
-            const configFile = await createConfigFile('no-exports.ts', content);
+            const configFile = await createTsConfigForTest('no-exports.ts', content);
 
             await expect(loadTsConfig(configFile)).rejects.toThrow(
                 'The config file must export something.'
@@ -222,7 +224,7 @@ describe('loadTsConfig', () => {
                 export const configA = { name: 'A' };
                 export const configB = { name: 'B' };
             `;
-            const configFile = await createConfigFile('multiple-named.ts', content);
+            const configFile = await createTsConfigForTest('multiple-named.ts', content);
 
             await expect(loadTsConfig(configFile)).rejects.toThrow(
                 'The config file must only have one export (or provide a default).'
@@ -232,11 +234,98 @@ describe('loadTsConfig', () => {
         it('should propagate syntax errors from the config file', async () => {
             // This is an invalid object literal
             const content = `export default { key: , };`;
-            const configFile = await createConfigFile('syntax-error.ts', content);
+            const configFile = await createTsConfigForTest('syntax-error.ts', content);
 
             // The exact error message comes from the 'typescript' package and can be brittle.
             // We just need to ensure it rejects.
             await expect(loadTsConfig(configFile)).rejects.toThrow();
+        });
+    });
+
+    describe('createTsConfigForTest', () => {
+
+        it('should create a basic config file without type constraints', async () => {
+            const configFilePath = path.join(tempDir, 'basic-config.ts');
+            const details: CreateIfNotFound = {
+                config: { port: 3000, host: '0.0.0.0' },
+            };
+
+            await createTsConfig(configFilePath, details);
+
+            const content = await readFile(configFilePath, 'utf-8');
+
+            const expectedContent = [
+                '// Please review and adjust these settings as needed for your project.',
+                '',
+                'export const config = {',
+                '    "port": 3000,',
+                '    "host": "0.0.0.0"',
+                '};'
+            ].join('\n');
+
+            expect(content).toBe(expectedContent);
+        });
+
+        it('should add an import from a package for a type constraint', async () => {
+            const configFilePath = path.join(tempDir, 'package-typed-config.ts');
+            const details: CreateIfNotFound = {
+                config: { setting: 'value' },
+                constrainToType: {
+                    identifier: 'MyConfigType',
+                    source: {
+                        type: 'package',
+                        packageName: '@my-org/my-package'
+                    }
+                }
+            };
+
+            await createTsConfig(configFilePath, details);
+            const content = await readFile(configFilePath, 'utf-8');
+
+            // Check that all parts exist in the correct order
+            expect(content).toContain('import {MyConfigType} from "@my-org/my-package";');
+            expect(content).toContain('// Please review and adjust these settings as needed for your project.');
+            expect(content).toContain('export const config:MyConfigType = {');
+
+            const importIndex = content.indexOf('import');
+            const exportIndex = content.indexOf('export');
+            const commentIndex = content.indexOf('//');
+
+            expect(commentIndex).toBe(0); // Comment must be first
+            expect(importIndex).toBeGreaterThan(commentIndex); // Import after comment
+            expect(exportIndex).toBeGreaterThan(importIndex); // Export after import
+        });
+
+        it('should add an import with a relative path for a local type constraint', async () => {
+            // Setup a directory structure to test relative path calculation
+            const configDir = path.join(tempDir, 'config-location');
+            const typesDir = path.join(tempDir, 'types-location');
+            await mkdir(configDir, { recursive: true });
+            await mkdir(typesDir, { recursive: true });
+
+            const configFilePath = path.join(configDir, 'local-typed-config.ts');
+            const typeDefinitionPath = path.join(typesDir, 'custom-types.ts');
+
+            const details: CreateIfNotFound = {
+                config: { theme: 'dark' },
+                constrainToType: {
+                    identifier: 'AppThemeConfig',
+                    source: {
+                        type: 'local',
+                        absolutePath: typeDefinitionPath
+                    }
+                }
+            };
+
+            await createTsConfig(configFilePath, details);
+            const content = await readFile(configFilePath, 'utf-8');
+
+            // Calculate the expected relative path exactly as the function does
+            const expectedRelativePath = path.relative(configFilePath, typeDefinitionPath);
+
+
+            expect(content).toContain(`import {AppThemeConfig} from "${expectedRelativePath}";`);
+            expect(content).toContain('export const config:AppThemeConfig = {');
         });
     });
 });
