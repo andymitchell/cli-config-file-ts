@@ -3,6 +3,8 @@ import type { AnyZodObject, SafeParseError, z } from "zod";
 import { loadTsConfig } from "./loadTsConfig.ts";
 import type { CreateIfNotFound } from "./types.ts";
 
+
+
 /**
  * Loads a TypeScript config file. 
  * 
@@ -17,7 +19,7 @@ import type { CreateIfNotFound } from "./types.ts";
  * @throws {Error} If multiple named exports exist without a default 
  * @throws {Error} If config object fails to validate against schema
  */
-export async function loadTsConfigWithSchema<S extends AnyZodObject>(absolutePath: string, schema: S, createIfNotFound?: CreateIfNotFound): Promise<z.infer<S>> {
+export async function loadTsConfigWithSchema<S extends AnyZodObject>(absolutePath: string, schema: S, createIfNotFound?: CreateIfNotFound<z.infer<S>>): Promise<z.infer<S>> {
     
     if( createIfNotFound ) {
         const result = schema.safeParse(createIfNotFound.config);
@@ -39,6 +41,8 @@ export async function loadTsConfigWithSchema<S extends AnyZodObject>(absolutePat
     
 
 }
+
+
 
 function convertSchemaErrorIntoMessage(parseError:SafeParseError<{[x: string]: any}>):string {
     return parseError.error.errors

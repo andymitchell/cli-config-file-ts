@@ -8,6 +8,7 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { execa } from 'execa';
 
+
 // --- Test Setup ---
 const tempDir = path.join(tmpdir(), 'vitest-loader-tests');
 

@@ -1,6 +1,6 @@
 
-export type CreateIfNotFound = {
-    config: any
+export type CreateIfNotFound<T extends object = any> = {
+    config: T
 
     /**
      * Return the default config from the newly created file.

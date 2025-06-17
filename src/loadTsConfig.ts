@@ -21,7 +21,7 @@ import type { CreateIfNotFound } from "./types.ts";
  * @throws {Error} If no usable export is found
  * @throws {Error} If multiple named exports exist without a default 
  */
-export async function loadTsConfig<T extends object = any>(absolutePath: string, createIfNotFound?:CreateIfNotFound): Promise<T> {
+export async function loadTsConfig<T extends object = any>(absolutePath: string, createIfNotFound?:CreateIfNotFound<T>): Promise<T> {
     if (!path.isAbsolute(absolutePath)) {
         throw new Error(`Path must be absolute: received "${absolutePath}"`, {cause: {type: 'file_not_found', reason: 'not_absolute_path'}});
     }
@@ -68,6 +68,7 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
     return mod[firstKey] as T;
 
 }
+
 
 /**
  * Attempt to use the native typescript import.
