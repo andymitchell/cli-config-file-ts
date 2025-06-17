@@ -1,6 +1,6 @@
 {
     "name": "@andyrmitchell/cli-config-file-ts",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Load and validate TypeScript config files with optional Zod schema support. Lightweight, zero dependencies, comprehensive error handling.",
     "sideEffects": false,
     "exports": {
