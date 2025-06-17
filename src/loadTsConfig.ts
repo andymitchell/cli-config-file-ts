@@ -1,13 +1,13 @@
 import { randomBytes } from "crypto";
-import { readFile, unlink, writeFile } from "fs/promises";
+import { unlink, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path, { join } from "path";
 import { pathToFileURL } from "url";
 
-import { transpileModule, ModuleKind, ScriptTarget } from "typescript";
 import { existsSync } from "fs";
 import type { CreateIfNotFound } from "./types.ts";
 import { createTsConfig } from "./createTsConfig.ts";
+import { build } from "esbuild";
 
 
 
@@ -23,21 +23,21 @@ import { createTsConfig } from "./createTsConfig.ts";
  * @throws {Error} If no usable export is found
  * @throws {Error} If multiple named exports exist without a default 
  */
-export async function loadTsConfig<T extends object = any>(absolutePath: string, createIfNotFound?:CreateIfNotFound<T>): Promise<T> {
+export async function loadTsConfig<T extends object = any>(absolutePath: string, createIfNotFound?: CreateIfNotFound<T>): Promise<T> {
     if (!path.isAbsolute(absolutePath)) {
-        throw new Error(`Path must be absolute: received "${absolutePath}"`, {cause: {type: 'file_not_found', reason: 'not_absolute_path'}});
+        throw new Error(`Path must be absolute: received "${absolutePath}"`, { cause: { type: 'file_not_found', reason: 'not_absolute_path' } });
     }
 
-    if( !existsSync(absolutePath) ) {
-        if( createIfNotFound ) {
+    if (!existsSync(absolutePath)) {
+        if (createIfNotFound) {
             await createTsConfig(absolutePath, createIfNotFound);
-            if(createIfNotFound.immediatelyUseConfig ) {
+            if (createIfNotFound.immediatelyUseConfig) {
                 return createIfNotFound.config as T;
             } else {
-                throw new Error(`A config file has been created at "${absolutePath}". Please check the options and re-run this.`, {cause: {type: 'halt_and_check'}});
+                throw new Error(`A config file has been created at "${absolutePath}". Please check the options and re-run this.`, { cause: { type: 'halt_and_check' } });
             }
         } else {
-            throw new Error(`File not found: received "${absolutePath}"`, {cause: {type: 'file_not_found'}})
+            throw new Error(`File not found: received "${absolutePath}"`, { cause: { type: 'file_not_found' } })
         }
     }
 
@@ -61,10 +61,10 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
     const keys = Object.keys(mod);
     const firstKey = keys[0];
     if (!firstKey) {
-        throw new Error("The config file must export something.", {cause: {type: 'no_exports'}});
+        throw new Error("The config file must export something.", { cause: { type: 'no_exports' } });
     }
     if (keys.length > 1) {
-        throw new Error("The config file must only have one export (or provide a default).", {cause: {type: 'uncertain_export'}});
+        throw new Error("The config file must only have one export (or provide a default).", { cause: { type: 'uncertain_export' } });
     }
     return mod[firstKey] as T;
 
@@ -107,22 +107,35 @@ export async function transpileAndImport<T extends object = any>(absolutePath: s
     const tempFile = join(tmpdir(), `temp-config-${tempId}.mjs`);
 
     try {
-        const tsCode = await readFile(absolutePath, 'utf-8');
-        const { outputText: jsCode } = transpileModule(tsCode, {
-            compilerOptions: {
-                target: ScriptTarget.ESNext,
-                module: ModuleKind.ESNext,
-            },
+        // Use esbuild to transpile and bundle the TS file into a single JS string
+        const result = await build({
+            entryPoints: [absolutePath],
+            outfile: 'out.js', // Required, but not used when write is false
+            bundle: true,      // Bundle any local imports
+            write: false,      // Return the result as a string instead of writing to disk
+            format: 'esm',     // Output as an ES Module
+            platform: 'node',  // Target the Node.js platform
+            target: 'esnext',  // Target modern JavaScript
         });
 
+        const jsCode = result.outputFiles[0]?.text;
+        if( !jsCode ) throw new Error("Could not transpile the config file.", {cause: {type: 'transpile_failed'}})
+
         await writeFile(tempFile, jsCode);
-        const module = await import(pathToFileURL(tempFile).href);
-        return module.default || module;
+
+        // Import the transpiled MJS file. The `?v=<timestamp>` is a cache-busting trick.
+        const module = await import(`${pathToFileURL(tempFile).href}?v=${Date.now()}`);
+
+        // The main function will handle extracting the default or named export.
+        // We just return the entire module namespace object.
+        return module;
+
     } finally {
         try {
+            // Clean up the temporary file
             await unlink(tempFile);
         } catch {
-            // Suppress cleanup errors
+            // Suppress cleanup errors, as they are not critical
         }
     }
 }

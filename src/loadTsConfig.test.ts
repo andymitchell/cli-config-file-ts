@@ -169,7 +169,7 @@ describe('loadTsConfig', () => {
             const configFile = await createTsConfigForTest('default-export-transpile.ts', content);
 
             const result = await transpileAndImport(configFile);
-            expect(result).toEqual({ mode: 'production' });
+            expect(result.default).toEqual({ mode: 'production' });
         });
 
         it('should load a config with a default export', async () => {

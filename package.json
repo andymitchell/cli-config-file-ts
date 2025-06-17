@@ -45,6 +45,7 @@
         "vitest": "^3.2.3"
     },
     "peerDependencies": {
-        "zod": "^3.23.8"
+        "zod": "^3.23.8",
+        "esbuild": ">=0.18"
     }
 }
