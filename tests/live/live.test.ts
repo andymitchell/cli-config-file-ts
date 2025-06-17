@@ -8,39 +8,31 @@ import { createTsConfig } from "../../src/createTsConfig.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const tempId = randomBytes(16).toString('hex');
 const sampleProjectDir = join(__dirname, 'sample-project');
-const tempProjectsDir = join(__dirname, 'temp-projects');
-const tempDir = join(tempProjectsDir, `temp-${tempId}`);
+const tempConfigDir = join(sampleProjectDir, 'temp-config');
+
 
 if( !existsSync(sampleProjectDir) ) {
     throw new Error("Sample project was expected with at least a type file");
 }
 
 async function cleanSampleConfigFiles() {
-    const files = await readdir(sampleProjectDir);
+    const files = await readdir(tempConfigDir);
     const configFiles = files.filter(f => f.endsWith(".config.ts"));
+    
     await Promise.all(
     configFiles.map(f =>
-        rm(join(sampleProjectDir, f), { force: true })
+        rm(join(tempConfigDir, f), { force: true })
     )
     );
 }
 
-async function cleanTempProjectsDir() {
-    await rm(tempProjectsDir, { recursive: true, force: true });
-}
 
 beforeAll(async () => {
     await cleanSampleConfigFiles();
-    await cleanTempProjectsDir();
-    await mkdir(tempProjectsDir, { recursive: true });
-    await mkdir(tempDir, { recursive: true });
+    await mkdir(tempConfigDir, {recursive: true});
 });
 
-afterAll(async () => {
-    await cleanTempProjectsDir();
-});
 
 describe('create', () => {
 
@@ -48,7 +40,7 @@ describe('create', () => {
 
         const configFile = `typeref-${randomBytes(16).toString('hex')}.config.ts`;
 
-        const configFilePath = join(sampleProjectDir, configFile);
+        const configFilePath = join(tempConfigDir, configFile);
         const typeFilePath = join(sampleProjectDir, 'types/types.ts');
 
         await createTsConfig(configFilePath, {
@@ -65,7 +57,7 @@ describe('create', () => {
         })
 
         const content = await readFile(configFilePath, {encoding: 'utf-8'});
-        expect(content).toContain(`import type {TestAppConfig} from "./types/types.ts";`);
+        expect(content).toContain(`import type {TestAppConfig} from "../types/types.ts";`);
 
     })
 
