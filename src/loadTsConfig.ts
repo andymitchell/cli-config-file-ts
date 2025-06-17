@@ -28,8 +28,7 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
 
     if( !existsSync(absolutePath) ) {
         if( createIfNotFound ) {
-            const content = `export const config = ${JSON.stringify(createIfNotFound.config, undefined, 4)};`.trim();
-            await writeFile(absolutePath, content, {encoding: 'utf-8'});
+            await createConfigFile(absolutePath, createIfNotFound);
             if(createIfNotFound.immediatelyUseConfig ) {
                 return createIfNotFound.config as T;
             } else {
@@ -67,6 +66,17 @@ export async function loadTsConfig<T extends object = any>(absolutePath: string,
     }
     return mod[firstKey] as T;
 
+}
+
+/**
+ * Create a config file from a default object.
+ * 
+ * @param absolutePath The location to write the file to 
+ * @param details The default object for the config
+ */
+export async function createConfigFile(absolutePath: string, details:CreateIfNotFound):Promise<void> {
+    const content = `export const config = ${JSON.stringify(details.config, undefined, 4)};`.trim();
+    await writeFile(absolutePath, content, {encoding: 'utf-8'});
 }
 
 
